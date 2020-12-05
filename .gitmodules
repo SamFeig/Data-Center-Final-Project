@@ -1,0 +1,3 @@
+[submodule "color-palettes"]
+	path = color-palettes
+	url = git@github.com:a-poor/color-palettes.git
