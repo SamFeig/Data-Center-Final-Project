@@ -35,7 +35,8 @@ localDeploy:
 	sleep 5
 	kubectl port-forward --address 0.0.0.0 service/rabbitmq 5672:5672 &
 	kubectl port-forward --address 0.0.0.0 service/redis 6379:6379 &
-cleanLocal:
+
+localClean:
 	kubectl delete deployment redis
 	kubectl delete deployment rabbitmq
 	kubectl delete service redis
