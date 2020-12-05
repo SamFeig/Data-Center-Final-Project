@@ -108,7 +108,8 @@ def uploadImage(filename):
     file = request.data
     #print(type(file))
     file_type = request.headers['Content-Type']
-    #print(file_type)
+    freq = int(request.headers['Frequency'])
+    #print(request.headers)
     m = hashlib.sha256()
     m.update(file)
 
@@ -151,7 +152,7 @@ def uploadImage(filename):
         "hash" : m.hexdigest()
     }
     response_pickled = jsonpickle.encode(response)
-    sendToWorker({ 'hash' : m.hexdigest(), 'name' : filename})#, 'image' : file})
+    sendToWorker({ 'hash' : m.hexdigest(), 'name' : filename, 'frequency' : freq})#, 'image' : file})
 
     log('POST /upload/%s HTTP/1.1 200' % (filename), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")

@@ -11,7 +11,7 @@ import jsonpickle
 
 def uploadImage(addr, filename, freq, debug=False):
     # prepare headers for http request
-    headers = {'content-type': 'video/mp4'}
+    headers = {'content-type': 'video/mp4', 'Frequency': str(freq)}
     img = open(filename, 'rb').read()
     # send http request with image and receive response
     image_url = addr + '/upload' + "/" + os.path.basename(filename)
