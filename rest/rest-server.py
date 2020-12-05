@@ -14,7 +14,7 @@ import hashlib, requests
 from gcloud import storage
 from apiclient.discovery import build as discovery_build
 from apiclient.errors import HttpError
-from apiclient.http import MediaFileUpload
+from apiclient.http import MediaFileUpload, MediaIoBaseUpload
 from apiclient.http import MediaIoBaseDownload
 from json import dumps as json_dumps
 from oauth2client.client import flow_from_clientsecrets
@@ -35,23 +35,18 @@ import urllib.error
 ##
 redisHost = os.getenv("REDIS_HOST") or "localhost"
 rabbitMQHost = os.getenv("RABBITMQ_HOST") or "localhost"
-
+print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost,redisHost))
 
 credentials = service_account.Credentials.from_service_account_file(filename='service-credentials.json')
 project = os.environ["GCLOUD_PROJECT"] = "CSCI-4253"
 service = googleapiclient.discovery.build('storage', 'v1', credentials=credentials)
 
-print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost,redisHost))
-
 # Retry transport and file IO errors.
 RETRYABLE_ERRORS = (urllib.error.HTTPError, IOError)
-
 # Number of times to retry failed downloads.
 NUM_RETRIES = 5
-
 # Number of bytes to send/receive in each request.
 CHUNKSIZE = 2 * 1024 * 1024
-
 # Mimetype to use if one can't be guessed from the file extension.
 DEFAULT_MIMETYPE = 'application/octet-stream'
 
@@ -71,7 +66,6 @@ def log(message, debug=False):
     print(" [x] Sent %r:%r" % (routing_key, message))
     channel.close()
     connection.close()
-    
 
 def sendToWorker(message):
     connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitMQHost))
@@ -88,17 +82,20 @@ def sendToWorker(message):
 
 def handle_progressless_iter(error, progressless_iters):
   if progressless_iters > NUM_RETRIES:
-    print('Failed to make progress for too many consecutive iterations.')
+    log('ERROR:Failed to make progress for too many consecutive iterations.')
     raise error
 
   sleeptime = random.random() * (2**progressless_iters)
-  print ('Caught exception (%s). Sleeping for %s seconds before retry #%d.'
+  log('Caught exception (%s). Sleeping for %s seconds before retry #%d.'
          % (str(error), sleeptime, progressless_iters))
   time.sleep(sleeptime)
 
 def print_with_carriage_return(s):
   sys.stdout.write('\r' + s)
   sys.stdout.flush()
+
+
+###REST API ROUTES###
 
 @app.route('/', methods=['GET'])
 def hello():
@@ -109,21 +106,22 @@ def uploadImage(filename):
     log("Attempting API request on /upload/%s" % (filename), True)
 
     file = request.data
+    #print(type(file))
+    file_type = request.headers['Content-Type']
+    #print(file_type)
     m = hashlib.sha256()
     m.update(file)
 
+    #Save file to Google bucket
     bucket_name = 'csci4253finalproject'
     object_name = m.hexdigest()
 
-    #Save file to Google bucket
-    media = MediaFileUpload(filename, chunksize=CHUNKSIZE, resumable=True)
+    media = MediaIoBaseUpload(io.BytesIO(file), file_type, chunksize=CHUNKSIZE, resumable=True)
     if not media.mimetype():
-        media = MediaFileUpload(filename, DEFAULT_MIMETYPE, resumable=True)
+        media = MediaIoBaseUpload(io.BytesIO(file), DEFAULT_MIMETYPE, chunksize=CHUNKSIZE, resumable=True)
     request1 = service.objects().insert(bucket=bucket_name, name=object_name, media_body=media)
 
-    print('Uploading file: %s to bucket: %s object: %s ' % (filename, bucket_name, object_name))
-
-    log("File {} uploaded to {}.".format(filename, m.hexdigest()))
+    log('Uploading file: %s to bucket: %s object: %s ' % (filename, bucket_name, object_name))
 
     progressless_iters = 0
     response1 = None
@@ -145,16 +143,17 @@ def uploadImage(filename):
             handle_progressless_iter(error, progressless_iters)
         else:
             progressless_iters = 0
+    print('\n')
+    log('Upload complete!')
 
-    print('\nUpload complete!')
-
+    #Return Hash to client and send to worker
     response = { 
         "hash" : m.hexdigest()
     }
     response_pickled = jsonpickle.encode(response)
-    sendToWorker({ 'hash' : m.hexdigest(), 'name' : filename, 'image' : file})
+    sendToWorker({ 'hash' : m.hexdigest(), 'name' : filename})#, 'image' : file})
 
-    log('POST /upload/ %s HTTP/1.1 200' % (filename), True)
+    log('POST /upload/%s HTTP/1.1 200' % (filename), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
 @app.route('/palette/<hash>' , methods=['GET'])
