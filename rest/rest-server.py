@@ -6,21 +6,13 @@ import io, os, sys
 import pika, redis
 import hashlib, requests
 
-#S3
-#from froala_editor import File
-#from froala_editor import FlaskAdapter
-
 #Google Cloud Storage
 from gcloud import storage
-from apiclient.discovery import build as discovery_build
-from apiclient.errors import HttpError
+
 from apiclient.http import MediaFileUpload, MediaIoBaseUpload
 from apiclient.http import MediaIoBaseDownload
-from json import dumps as json_dumps
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage as CredentialStorage
-from oauth2client.tools import run_flow as run_oauth2
 
+#Google Cloud Auth
 import googleapiclient.discovery
 import google.auth
 import google.oauth2.service_account as service_account
