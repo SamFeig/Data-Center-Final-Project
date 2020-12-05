@@ -6,13 +6,54 @@ import io, os, sys
 import pika, redis
 import hashlib, requests
 
+#S3
+#from froala_editor import File
+#from froala_editor import FlaskAdapter
+
+#Google Cloud Storage
+from gcloud import storage
+from apiclient.discovery import build as discovery_build
+from apiclient.errors import HttpError
+from apiclient.http import MediaFileUpload
+from apiclient.http import MediaIoBaseDownload
+from json import dumps as json_dumps
+from oauth2client.client import flow_from_clientsecrets
+from oauth2client.file import Storage as CredentialStorage
+from oauth2client.tools import run_flow as run_oauth2
+
+import googleapiclient.discovery
+import google.auth
+import google.oauth2.service_account as service_account
+
+import urllib.request
+import urllib.error
+
+
+
 ##
 ## Configure test vs. production
 ##
 redisHost = os.getenv("REDIS_HOST") or "localhost"
 rabbitMQHost = os.getenv("RABBITMQ_HOST") or "localhost"
 
+
+credentials = service_account.Credentials.from_service_account_file(filename='service-credentials.json')
+project = os.environ["GCLOUD_PROJECT"] = "CSCI-4253"
+service = googleapiclient.discovery.build('storage', 'v1', credentials=credentials)
+
 print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost,redisHost))
+
+# Retry transport and file IO errors.
+RETRYABLE_ERRORS = (urllib.error.HTTPError, IOError)
+
+# Number of times to retry failed downloads.
+NUM_RETRIES = 5
+
+# Number of bytes to send/receive in each request.
+CHUNKSIZE = 2 * 1024 * 1024
+
+# Mimetype to use if one can't be guessed from the file extension.
+DEFAULT_MIMETYPE = 'application/octet-stream'
 
 # Initialize the Flask application
 app = Flask(__name__)
@@ -45,46 +86,78 @@ def sendToWorker(message):
     channel.close()
     connection.close()
 
+def handle_progressless_iter(error, progressless_iters):
+  if progressless_iters > NUM_RETRIES:
+    print('Failed to make progress for too many consecutive iterations.')
+    raise error
+
+  sleeptime = random.random() * (2**progressless_iters)
+  print ('Caught exception (%s). Sleeping for %s seconds before retry #%d.'
+         % (str(error), sleeptime, progressless_iters))
+  time.sleep(sleeptime)
+
+def print_with_carriage_return(s):
+  sys.stdout.write('\r' + s)
+  sys.stdout.flush()
+
 @app.route('/', methods=['GET'])
 def hello():
-    return '<h1> Face Rec Server</h1><p> Use a valid endpoint </p>'
+    return '<h1> Movie Color Palette Picker Server</h1><p> Use a valid endpoint </p>'
 
-@app.route('/scan/image/<filename>' , methods=['POST'])
-def scanImage(filename):
-    log("Attempting API request on /scan/image/%s" % (filename), True)
+@app.route('/upload/<filename>' , methods=['POST'])
+def uploadImage(filename):
+    log("Attempting API request on /upload/%s" % (filename), True)
 
-    image = request.data
+    file = request.data
     m = hashlib.sha256()
-    m.update(image)
+    m.update(file)
+
+    bucket_name = 'csci4253finalproject'
+    object_name = m.hexdigest()
+
+    #Save file to Google bucket
+    media = MediaFileUpload(filename, chunksize=CHUNKSIZE, resumable=True)
+    if not media.mimetype():
+        media = MediaFileUpload(filename, DEFAULT_MIMETYPE, resumable=True)
+    request1 = service.objects().insert(bucket=bucket_name, name=object_name, media_body=media)
+
+    print('Uploading file: %s to bucket: %s object: %s ' % (filename, bucket_name, object_name))
+
+    log("File {} uploaded to {}.".format(filename, m.hexdigest()))
+
+    progressless_iters = 0
+    response1 = None
+    while response1 is None:
+        error = None
+        try:
+            progress1, response1 = request1.next_chunk()
+            if progress1:
+                print_with_carriage_return('Upload %d%%' % (100 * progress1.progress()))
+        except urllib.error.HTTPError as err:
+            error = err
+            if err.resp.status < 500:
+                raise
+        except RETRYABLE_ERRORS as err:
+            error = err
+
+        if error:
+            progressless_iters += 1
+            handle_progressless_iter(error, progressless_iters)
+        else:
+            progressless_iters = 0
+
+    print('\nUpload complete!')
 
     response = { 
         "hash" : m.hexdigest()
     }
     response_pickled = jsonpickle.encode(response)
-    sendToWorker({ 'hash' : m.hexdigest(), 'name' : filename, 'image' : image})
+    sendToWorker({ 'hash' : m.hexdigest(), 'name' : filename, 'image' : file})
 
-    log('POST /scan/image/%s HTTP/1.1 200' % (filename) , True)
+    log('POST /upload/ %s HTTP/1.1 200' % (filename), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
-@app.route('/scan/url' , methods=['POST'])
-def scanURL():
-    url = request.get_json()['url']
-    log("Attempting API request on /scan/url %s" % (url), True)
-    
-    image = requests.get(url, allow_redirects=True)
-    m = hashlib.sha256()
-    m.update(image.content)
-
-    response = { 
-        "hash" : m.hexdigest()
-    }
-    response_pickled = jsonpickle.encode(response)
-    sendToWorker({ 'hash' : m.hexdigest(), 'name' : url, 'image' : image.content})
-
-    log('POST /scan/url/ %s HTTP/1.1 200' % (url), True)
-    return Response(response=response_pickled, status=200, mimetype="application/json")
-
-@app.route('/match/<hash>' , methods=['GET'])
+@app.route('/palette/<hash>' , methods=['GET'])
 def matchHash(hash):
     redisHashToHashSet = redis.Redis(host=redisHost, db=4, decode_responses=True)
 
@@ -94,7 +167,7 @@ def matchHash(hash):
 
     response_pickled = jsonpickle.encode(response)
 
-    log('GET /match/%s HTTP/1.1 200' % (hash), True)
+    log('GET /palette/%s HTTP/1.1 200' % (hash), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
 
