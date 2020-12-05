@@ -32,6 +32,9 @@ def unscale(centers):
     return (centers * 255).astype("uint8").tolist()
 
 
+def url_to_kmeans_palette(url, nclusters=8):
+    make_kmeans_palette(img_from_url(url))
+
 def make_kmeans_palette(img, nclusters=8):
     pixels = flatten_and_scale(img)
     centers = get_clusters(pixels, nclusters)
@@ -80,7 +83,8 @@ def mp4_to_images(filename, frequency=1000):
         count += 1
         print(success, count)
         if success:
-            images.append(image)
+            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            images.append(img)
     return images
 
 
@@ -94,4 +98,6 @@ if __name__ == "__main__":
     frequency = int(float(sys.argv[2]) * 1000)
     images = mp4_to_images(filename, frequency)
 
+    print(images[0], images[0].reshape((-1, 3)).astype("float32") / 255)
     print(make_kmeans_palette(images[0]))
+    # print(url_to_kmeans_palette("https://i.imgur.com/AC4n03N.jpg"))
