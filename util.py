@@ -24,7 +24,7 @@ redisHost = os.getenv("REDIS_HOST") or "localhost"
 rabbitMQHost = os.getenv("RABBITMQ_HOST") or "localhost"
 print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost,redisHost))
 
-credentials = service_account.Credentials.from_service_account_file(filename='service-credentials.json')
+credentials = service_account.Credentials.from_service_account_file(filename='../service-credentials.json')
 project = os.environ["GCLOUD_PROJECT"] = "CSCI-4253"
 service = googleapiclient.discovery.build('storage', 'v1', credentials=credentials)
 
