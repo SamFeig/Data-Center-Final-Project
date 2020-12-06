@@ -30,8 +30,8 @@ print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost, redisHost)
 
 
 redisVidHashToImgHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
-redisImgHashToTimestamp = redis.Redis(host=redisHost, db=1, decode_responses=True)
-redisImgHashToColorPalette = redis.Redis(host=redisHost, db=1, decode_responses=True)
+redisImgHashToTimestamp = redis.Redis(host=redisHost, db=2, decode_responses=True)
+redisImgHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
 def handle_progressless_iter(error, progressless_iters):
     if progressless_iters > 5:

@@ -95,7 +95,7 @@ def uploadToGCS(filename, file, file_type, bucket_name, object_name):
         try:
             progress, response = request.next_chunk()
             if progress:
-                print_with_carriage_return('Upload %d%%' % (100 * progress.progress()))
+                log('Upload %d%%' % (100 * progress.progress()))
         except urllib.error.HTTPError as err:
             error = err
             if err.resp.status < 500:
@@ -111,7 +111,7 @@ def uploadToGCS(filename, file, file_type, bucket_name, object_name):
     #print('\n')
     log('Upload complete!')
 
-    log('Uploaded Object: %r' % (json_dumps(response, indent=2)), True)
+    #log('Uploaded Object: %r' % (json_dumps(response, indent=2)), True)
 
 def downloadFromGCS(filename, bucket_name, object_name):
     f = open(filename, 'wb')

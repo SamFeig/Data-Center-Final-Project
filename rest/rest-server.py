@@ -1,14 +1,17 @@
 ##
-from flask import Flask, request, Response
+from flask import Flask, request, Response, send_file
 import jsonpickle, pickle
 import platform
 import io, os, sys
 import pika, redis
 import hashlib, requests
 from json import dumps as json_dumps
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
 
 sys.path.append("..")
-from util import log, sendToWorker, uploadToGCS
+from util import log, sendToWorker, uploadToGCS, downloadFromGCS
 
 ##
 ## Configure test vs. production
@@ -60,10 +63,11 @@ def processFrames(hash):
     redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
 
     imageList = list(redisVidHashToImageHash.smembers(hash))
+    '''
     for imageHash in imageList:
         log('Sent message to worker to process image: %s' % (imageHash))
         sendToWorker({ 'VidHash' : hash, 'image' : imageHash, 'task' : 'processs-color'})
-
+    '''
     response = { 
         "imageHashes" : imageList
     }
@@ -76,16 +80,73 @@ def processFrames(hash):
 #Final endpoint to get results
 @app.route('/palette/<hash>' , methods=['GET'])
 def matchHash(hash):
-    redisHashToHashSet = redis.Redis(host=redisHost, db=4, decode_responses=True)
+    redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
+    redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
-    response = { 
-        "match" : list(redisHashToHashSet.smembers(hash))
-    }
+    imageList = list(redisVidHashToImageHash.smembers(hash))
+    #fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
+    fig, axs = plt.subplots(len(imageList), figsize=(14,14))
+    for imageHash in imageList:
+        # Plot the image
+        #img = downloadFromGCS('results', 'csci4253finalproject', '%s/%s' % (hash,imageHash))
+       
+        #Get color centers from redis db
+        #print(redisImageHashToColorPalette.get(imageHash))
+        #centers = []
+        centers = [i.split(' ') for i in redisImageHashToColorPalette.get(imageHash).split(',')]
+        centers = np.array([np.array([float(n) for n in i])for i in centers])
+        #print(centers)
+        #axs[0].imshow(np.array(Image.open(img)))
+        #axs[0].grid()
+        #axs[0].axis('off')
 
-    response_pickled = jsonpickle.encode(response)
+        # Plot the palette
+        #print(np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T)
+        #print(centers[np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T])
+        axs[0].imshow(centers[
+            np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T
+        ])
+        axs[0].grid()
+        axs[0].axis('off')
+        plt.savefig('results_%s.jpg' % hash)
+        #buf = io.BytesIO()
+        #plt.savefig(buf, format='jpg')
 
-    log('GET /palette/%s HTTP/1.1 200' % (hash), True)
-    return Response(response=response_pickled, status=200, mimetype="application/json")
+    '''
+    fig, axs = plt.subplots(2, figsize=(14,14))
+    
+    # Plot the image
+    img = downloadFromGCS('results', 'csci4253finalproject', hash)
+    centers = list(redisImageHashToColorPalette.smembers(hash)) #Get color centers from redis db
+
+    axs[0].imshow(img)
+    axs[0].grid()
+    axs[0].axis('off')
+
+    # Plot the palette
+    axs[1].imshow(centers[
+        np.concatenate([[i] * 100 for i in range(len(centers))]
+                       ).reshape((-1, 10)).T
+    ])
+    axs[1].grid()
+    axs[1].axis('off')
+    buf = io.BytesIO()
+    plt.savefig(buf, format='jpg')
+    '''
+    
+    
+    return send_file('results_%s.jpg' % hash, mimetype='image/jpg', 
+                                as_attachment=False, attachment_filename='results_%s.jpg' % hash)
+    
+    #log('GET /palette/%s HTTP/1.1 200' % (hash), True)
+    #response = { 
+    #    "match" : list(redisHashToHashSet.smembers(hash))
+    #}
+
+    #response_pickled = jsonpickle.encode(response)
+
+    #log('GET /palette/%s HTTP/1.1 200' % (hash), True)
+    #return Response(response=response_pickled, status=200, mimetype="application/json")
 
 
 # start flask app
