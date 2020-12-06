@@ -142,3 +142,10 @@ def downloadFromGCS(filename, bucket_name, object_name):
             progressless_iters = 0
     log('Download complete!')
     return f
+
+def rgbToHex(r, g, b):
+    return '#%x%x%x' % (r, g, b)
+
+def hexTorgb(hex):
+    h = hex.lstrip('#')
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
