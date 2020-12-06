@@ -6,6 +6,7 @@ import io, os, sys
 import pika, redis
 import hashlib, requests
 from json import dumps as json_dumps
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -16,7 +17,7 @@ from util import log, sendToWorker, uploadToGCS, downloadFromGCS
 ##
 ## Configure test vs. production
 ##
-
+matplotlib.use('Agg')
 redisHost = os.getenv("REDIS_HOST") or "localhost"
 rabbitMQHost = os.getenv("RABBITMQ_HOST") or "localhost"
 print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost,redisHost))
@@ -86,7 +87,9 @@ def matchHash(hash):
     imageList = list(redisVidHashToImageHash.smembers(hash))
     #fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
     fig, axs = plt.subplots(len(imageList), figsize=(14,14))
-    for imageHash in imageList:
+    buf = io.BytesIO()
+    for i in range(len(imageList)):
+        imageHash = imageList[i]
         # Plot the image
         #img = downloadFromGCS('results', 'csci4253finalproject', '%s/%s' % (hash,imageHash))
        
@@ -103,15 +106,15 @@ def matchHash(hash):
         # Plot the palette
         #print(np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T)
         #print(centers[np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T])
-        axs[0].imshow(centers[
+        axs[i].imshow(centers[
             np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T
         ])
-        axs[0].grid()
-        axs[0].axis('off')
-        plt.savefig('results_%s.jpg' % hash)
-        #buf = io.BytesIO()
-        #plt.savefig(buf, format='jpg')
+        axs[i].grid()
+        axs[i].axis('off')
 
+    #plt.savefig('results_%s.jpg' % hash)  
+    plt.savefig(buf, format='jpg')
+    #buf.seek(0)
     '''
     fig, axs = plt.subplots(2, figsize=(14,14))
     
@@ -135,8 +138,8 @@ def matchHash(hash):
     '''
     
     
-    return send_file('results_%s.jpg' % hash, mimetype='image/jpg', 
-                                as_attachment=False, attachment_filename='results_%s.jpg' % hash)
+    return send_file(buf, mimetype='image/jpg', 
+                                as_attachment=True, attachment_filename='results_%s.jpg' % hash)
     
     #log('GET /palette/%s HTTP/1.1 200' % (hash), True)
     #response = { 
