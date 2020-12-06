@@ -84,7 +84,7 @@ def handle_progressless_iter(error, progressless_iters):
   log('Caught exception (%s). Sleeping for %s seconds before retry #%d.'
          % (str(error), sleeptime, progressless_iters))
   time.sleep(sleeptime)
-  
+
 #From Demo Code at:
 #https://github.com/GoogleCloudPlatform/storage-file-transfer-json-python/blob/master/chunked_transfer.py
 def print_with_carriage_return(s):
@@ -133,6 +133,7 @@ def uploadToGCS(filename, file, file_type, bucket_name, object_name):
 def hello():
     return '<h1> Movie Color Palette Picker Server</h1><p> Use a valid endpoint </p>'
 
+#Image upload endpoint
 @app.route('/upload/<filename>' , methods=['POST'])
 def uploadImage(filename):
     log("Attempting API request on /upload/%s" % (filename), True)
@@ -158,12 +159,15 @@ def uploadImage(filename):
     log('POST /upload/%s HTTP/1.1 200' % (filename), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
+#Intermediate endpoint for worker
 @app.route('/process/<hash>' , methods=['POST'])
 def processFrames(hash):
+    log("Attempting API request on /process/%s" % (hash), True)
     redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
 
     imageList = list(redisVidHashToImageHash.smembers(hash))
     for imageHash in imageList:
+        log('Sent message to worker to process image: %s' % (imageHash))
         sendToWorker({ 'VidHash' : hash, 'image' : imageHash, 'task' : 'processs-color'})
 
     response = { 
@@ -175,8 +179,7 @@ def processFrames(hash):
     log('POST /process/%s HTTP/1.1 200' % (hash), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
-
-
+#Final endpoint to get results
 @app.route('/palette/<hash>' , methods=['GET'])
 def matchHash(hash):
     redisHashToHashSet = redis.Redis(host=redisHost, db=4, decode_responses=True)

@@ -9,13 +9,20 @@ import time
 import sys, os
 import jsonpickle
 
-def uploadImage(addr, filename, freq, debug=False):
+def uploadFile(addr, filename, freq, debug=False):
     # prepare headers for http request
     headers = {'content-type': 'video/mp4', 'Frequency': str(freq)}
-    img = open(filename, 'rb').read()
-    # send http request with image and receive response
-    image_url = addr + '/upload' + "/" + os.path.basename(filename)
-    response = requests.post(image_url, data=img, headers=headers)
+    file = open(filename, 'rb').read()
+    url = addr + "/upload/" + os.path.basename(filename)
+    response = requests.post(url, data=file, headers=headers)
+    if debug:
+        # decode response
+        print("Response is", response)
+        print(json.loads(response.text))
+
+def imageProcess(addr, hashval, debug=False):
+    url = addr + "/process/" + hashval
+    response = requests.post(url)
     if debug:
         # decode response
         print("Response is", response)
@@ -29,6 +36,8 @@ def paletteMatch(addr, hashval, debug=False):
         print("Response is", response)
         print(json.loads(response.text))
 
+
+
 host = sys.argv[1]
 cmd = sys.argv[2]
 
@@ -37,18 +46,12 @@ addr = 'http://{}'.format(host)
 if cmd == 'upload':
     filename = sys.argv[3]
     freq = int(sys.argv[4])
-    #start = time.perf_counter()
-    #for x in range(reps):
-    uploadImage(addr, filename, freq, True)
-    #delta = ((time.perf_counter() - start)/reps)*1000
-    #print("Took", delta, "ms per operation")
+    uploadFile(addr, filename, freq, True)
+elif cmd == 'process':
+    hashval = sys.argv[3]
+    imageProcess(addr, hashval, True)
 elif cmd == 'palette':
     hashval = sys.argv[3]
-    #reps = int(sys.argv[4])
-    #start = time.perf_counter()
-    #for x in range(reps):
     paletteMatch(addr, hashval, True)
-    #delta = ((time.perf_counter() - start)/reps)*1000
-    #print("Took", delta, "ms per operation")
 else:
     print("Unknown option", cmd)
