@@ -9,5 +9,6 @@ gcloud==0.18.3
 google-api-python-client=1.12.3
 flask==1.1.2
 jsonpickle==1.4.1
-pika=1.1.0
-redis=3.5.3
+pika==1.1.0
+redis==3.5.3
+colormath==3.0.0

@@ -11,6 +11,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
+#colormath
+from colormath.color_objects import sRGBColor, LabColor
+from colormath.color_conversions import convert_color
+from colormath.color_diff import delta_e_cie2000
+
 sys.path.append("..")
 from util import log, sendToWorker, uploadToGCS, downloadFromGCS
 
@@ -57,37 +62,55 @@ def uploadImage(filename):
     log('POST /upload/%s HTTP/1.1 200' % (filename), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
-#Intermediate endpoint for worker
-@app.route('/process/<hash>' , methods=['POST'])
-def processFrames(hash):
-    log("Attempting API request on /process/%s" % (hash), True)
+@app.route('/match/<hash>/<int:R>/<int:G>/<int:B>' , methods=['GET'])
+def matchValues(R, B, G):
+    log("Attempting API request on /match/ for %d, %d, %d" % (R, G, B), True)
+
     redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
+    redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
+    #From colormath instructions here:
+    #http://hanzratech.in/2015/01/16/color-difference-between-2-colors-using-python.html
+
+    # Red Color
+    color1_rgb = sRGBColor(R, G, B);
+
+    # Image Color
+    imgRGB = hexTorgb()
+    color2_rgb = sRGBColor(imgRGB[0], imgRGB[1], imgRGB[2]);
+
+    # Convert from RGB to Lab Color Space
+    color1_lab = convert_color(color1_rgb, LabColor);
+
+    # Convert from RGB to Lab Color Space
+    color2_lab = convert_color(color2_rgb, LabColor);
+
+    # Find the color difference
+    delta_e = delta_e_cie2000(color1_lab, color2_lab);
+
+    if delta_e <= threshold:
+        pass
 
     imageList = list(redisVidHashToImageHash.smembers(hash))
-    '''
-    for imageHash in imageList:
-        log('Sent message to worker to process image: %s' % (imageHash))
-        sendToWorker({ 'VidHash' : hash, 'image' : imageHash, 'task' : 'processs-color'})
-    '''
+
     response = { 
         "imageHashes" : imageList
     }
 
     response_pickled = jsonpickle.encode(response)
 
-    log('POST /process/%s HTTP/1.1 200' % (hash), True)
+    log('POST /match/%s HTTP/1.1 200' % (hash), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
-#Final endpoint to get results
+#Final endpoint to get results from a video hash
 @app.route('/palette/<hash>' , methods=['GET'])
 def matchHash(hash):
+    log("Attempting API request on /palette/ for %s" % (hash), True)
+
     redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
     imageList = list(redisVidHashToImageHash.smembers(hash))
-    #imageList.reverse()
 
-    #print(imageList)
     fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
 
     buf = io.BytesIO()
@@ -113,7 +136,6 @@ def matchHash(hash):
         axs[subplt].grid()
         axs[subplt].axis('off')
         subplt += 1
-
 
     #plt.savefig('results_%s.jpg' % hash)  
     plt.savefig(buf, format='jpg')
