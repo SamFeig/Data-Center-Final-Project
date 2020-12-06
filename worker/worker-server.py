@@ -16,7 +16,7 @@ import json
 
 # Google Cloud Auth
 sys.path.append("..")
-from util import log, sendToWorker, downloadFromGCS
+from util import log, sendToWorker, downloadFromGCS, uploadToGCS
 
 import make_palette
 
@@ -31,6 +31,7 @@ print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost, redisHost)
 
 redisVidHashToImgHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
 redisImgHashToTimestamp = redis.Redis(host=redisHost, db=1, decode_responses=True)
+redisImgHashToColorPalette = redis.Redis(host=redisHost, db=1, decode_responses=True)
 
 def handle_progressless_iter(error, progressless_iters):
     if progressless_iters > 5:
@@ -56,28 +57,41 @@ def callback(ch, method, properties, body):
         bucket_name = 'csci4253finalproject'
         vid_hash = data['hash']
         object_name = data['hash']
-        filename = 'temp'
+        filename = data['hash']
         f = downloadFromGCS(filename, bucket_name, object_name)
 
         images = make_palette.mp4_to_images(filename, frequency)
+        encoded_images = make_palette.encode_images(images)
 
-        for index, image in enumerate(images):
+        for index, image in enumerate(encoded_images):
             m = hashlib.sha256()
-            m.update(bytes(image))
+            m.update(image)
             img_hash = m.hexdigest()
 
             redisVidHashToImgHash.sadd(vid_hash, img_hash)
-            
-            print(vid_hash, img_hash)
-            print(img_hash, frequency * index)
             redisImgHashToTimestamp.set(img_hash, frequency * index)
 
+            uploadToGCS(img_hash, image, 'image/jpeg', bucket_name,  vid_hash + '/' + img_hash)
+            sendToWorker({ 'task': 'process-color', 'image_hash': img_hash, 'video_hash': vid_hash })
         f.close()
         os.remove(f.name)
+
     elif task == 'process-color':
-        pass
+        bucket_name = 'csci4253finalproject'
+        vid_hash = data['video_hash']
+        img_hash = data['image_hash']
+        object_name = vid_hash + '/' + img_hash
+        filename = data['image_hash']
+        f = downloadFromGCS(filename, bucket_name, object_name)
+
+        img = make_palette.img_from_file(filename)
+        clusters = make_palette.img_to_clusters(img, un_scale=False)
+
+        redisImgHashToColorPalette.set(img_hash, ','.join(clusters))
+        print(clusters)
     else:
-        log('No task found for worker')
+        print(task)
+        log('No task found for worker with data', data)
 
     print(" [x] Done")
     ch.basic_ack(delivery_tag=method.delivery_tag)

@@ -65,10 +65,12 @@ def url_to_clusters(url, n_clusters=8):
     return unscale(centers)
 
 
-def img_to_clusters(img, n_clusters=8):
+def img_to_clusters(img, n_clusters=8, un_scale=True):
     data = flatten_and_scale(img)
     centers = get_clusters(data, n_clusters)
-    return unscale(centers)
+    if un_scale:
+        return unscale(centers)
+    return centers
 
 
 def mp4_to_images(filename, frequency=1000):
@@ -83,10 +85,15 @@ def mp4_to_images(filename, frequency=1000):
         count += 1
         print(success, count)
         if success:
-            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            images.append(img)
+            images.append(image)
     return images
 
+def encode_images(images):
+    encoded = []
+    for image in images:
+        success, buffer = cv2.imencode(".jpg", image)
+        encoded.append(buffer)
+    return encoded
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -99,5 +106,5 @@ if __name__ == "__main__":
     images = mp4_to_images(filename, frequency)
 
     print(images[0], images[0].reshape((-1, 3)).astype("float32") / 255)
-    print(make_kmeans_palette(images[0]))
+    print(make_kmeans_palette(cv2.cvtColor(images[0], cv2.COLOR_BGR2RGB)))
     # print(url_to_kmeans_palette("https://i.imgur.com/AC4n03N.jpg"))
