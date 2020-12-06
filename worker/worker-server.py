@@ -87,7 +87,7 @@ def callback(ch, method, properties, body):
         img = make_palette.img_from_file(filename)
         clusters = make_palette.img_to_clusters(img, un_scale=False)
 
-        redisImgHashToColorPalette.set(img_hash, ','.join(clusters))
+        redisImgHashToColorPalette.set(img_hash, ' '.join([','.join(c) for c in clusters]))
         print(clusters)
     else:
         print(task)
