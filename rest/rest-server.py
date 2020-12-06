@@ -94,7 +94,7 @@ def matchHash(hash):
     subplt = 0
     for imageHash in imageList:
         #Download image
-        img = downloadFromGCS('results', 'csci4253finalproject', '%s/%s' % (hash,imageHash))
+        img = downloadFromGCS('results', 'csci4253finalproject', '%s/%s' % (hash,imageHash), file_perms='r+b')
 
         #Get color centers from redis db
         centers = [i.split(' ') for i in redisImageHashToColorPalette.get(imageHash).split(',')]

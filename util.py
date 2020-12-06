@@ -113,8 +113,8 @@ def uploadToGCS(filename, file, file_type, bucket_name, object_name):
 
     #log('Uploaded Object: %r' % (json_dumps(response, indent=2)), True)
 
-def downloadFromGCS(filename, bucket_name, object_name):
-    f = open(filename, 'r+b')
+def downloadFromGCS(filename, bucket_name, object_name, file_perms='w+b'):
+    f = open(filename, file_perms)
 
     request = service.objects().get_media(bucket=bucket_name, object=object_name)
     media = MediaIoBaseDownload(f, request, chunksize=CHUNKSIZE)

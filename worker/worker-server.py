@@ -32,6 +32,8 @@ print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost, redisHost)
 redisVidHashToImgHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
 redisImgHashToTimestamp = redis.Redis(host=redisHost, db=2, decode_responses=True)
 redisImgHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
+redisImgHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
+
 
 def handle_progressless_iter(error, progressless_iters):
     if progressless_iters > 5:
@@ -87,7 +89,12 @@ def callback(ch, method, properties, body):
         img = make_palette.img_from_file(filename)
         clusters = make_palette.img_to_clusters(img, un_scale=False)
         str_clusters = ','.join([' '.join([str(val) for val in rgb]) for rgb in clusters])
-        print(clusters)
+
+        color_clusters = make_palette.unscale(clusters)
+        print(color_clusters)
+        for rgb in color_clusters:
+            print(rgb)
+
         
         redisImgHashToColorPalette.set(img_hash, str_clusters)
         f.close()
