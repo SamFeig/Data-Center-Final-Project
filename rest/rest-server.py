@@ -5,6 +5,7 @@ import platform
 import io, os, sys
 import pika, redis
 import hashlib, requests
+from json import dumps as json_dumps
 
 #Google Cloud Storage
 from gcloud import storage
@@ -29,7 +30,7 @@ redisHost = os.getenv("REDIS_HOST") or "localhost"
 rabbitMQHost = os.getenv("RABBITMQ_HOST") or "localhost"
 print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost,redisHost))
 
-credentials = service_account.Credentials.from_service_account_file(filename='service-credentials.json')
+credentials = service_account.Credentials.from_service_account_file(filename='../service-credentials.json')
 project = os.environ["GCLOUD_PROJECT"] = "CSCI-4253"
 service = googleapiclient.discovery.build('storage', 'v1', credentials=credentials)
 
@@ -72,6 +73,8 @@ def sendToWorker(message):
     channel.close()
     connection.close()
 
+#From Demo Code at:
+#https://github.com/GoogleCloudPlatform/storage-file-transfer-json-python/blob/master/chunked_transfer.py
 def handle_progressless_iter(error, progressless_iters):
   if progressless_iters > NUM_RETRIES:
     log('ERROR:Failed to make progress for too many consecutive iterations.')
@@ -81,11 +84,48 @@ def handle_progressless_iter(error, progressless_iters):
   log('Caught exception (%s). Sleeping for %s seconds before retry #%d.'
          % (str(error), sleeptime, progressless_iters))
   time.sleep(sleeptime)
-
+  
+#From Demo Code at:
+#https://github.com/GoogleCloudPlatform/storage-file-transfer-json-python/blob/master/chunked_transfer.py
 def print_with_carriage_return(s):
   sys.stdout.write('\r' + s)
   sys.stdout.flush()
 
+#From Demo Code at:
+#https://github.com/GoogleCloudPlatform/storage-file-transfer-json-python/blob/master/chunked_transfer.py
+def uploadToGCS(filename, file, file_type, bucket_name, object_name):
+    log('Building upload request...', True)
+    media = MediaIoBaseUpload(io.BytesIO(file), file_type, chunksize=CHUNKSIZE, resumable=True)
+    if not media.mimetype():
+        media = MediaIoBaseUpload(io.BytesIO(file), DEFAULT_MIMETYPE, chunksize=CHUNKSIZE, resumable=True)
+    request = service.objects().insert(bucket=bucket_name, name=object_name, media_body=media)
+
+    log('Uploading file: %s to bucket: %s object: %s ' % (filename, bucket_name, object_name))
+
+    progressless_iters = 0
+    response = None
+    while response is None:
+        error = None
+        try:
+            progress, response = request.next_chunk()
+            if progress:
+                print_with_carriage_return('Upload %d%%' % (100 * progress.progress()))
+        except urllib.error.HTTPError as err:
+            error = err
+            if err.resp.status < 500:
+                raise
+        except RETRYABLE_ERRORS as err:
+            error = err
+
+        if error:
+            progressless_iters += 1
+            handle_progressless_iter(error, progressless_iters)
+        else:
+            progressless_iters = 0
+    #print('\n')
+    log('Upload complete!')
+
+    log('Uploaded Object: %r' % (json_dumps(response, indent=2)), True)
 
 ###REST API ROUTES###
 
@@ -105,49 +145,37 @@ def uploadImage(filename):
     m = hashlib.sha256()
     m.update(file)
 
-    #Save file to Google bucket
-    bucket_name = 'csci4253finalproject'
-    object_name = m.hexdigest()
+    #Upload file to Google Cloud Storage Bucket
+    uploadToGCS(filename, file, file_type, 'csci4253finalproject', m.hexdigest())
 
-    media = MediaIoBaseUpload(io.BytesIO(file), file_type, chunksize=CHUNKSIZE, resumable=True)
-    if not media.mimetype():
-        media = MediaIoBaseUpload(io.BytesIO(file), DEFAULT_MIMETYPE, chunksize=CHUNKSIZE, resumable=True)
-    request1 = service.objects().insert(bucket=bucket_name, name=object_name, media_body=media)
-
-    log('Uploading file: %s to bucket: %s object: %s ' % (filename, bucket_name, object_name))
-
-    progressless_iters = 0
-    response1 = None
-    while response1 is None:
-        error = None
-        try:
-            progress1, response1 = request1.next_chunk()
-            if progress1:
-                print_with_carriage_return('Upload %d%%' % (100 * progress1.progress()))
-        except urllib.error.HTTPError as err:
-            error = err
-            if err.resp.status < 500:
-                raise
-        except RETRYABLE_ERRORS as err:
-            error = err
-
-        if error:
-            progressless_iters += 1
-            handle_progressless_iter(error, progressless_iters)
-        else:
-            progressless_iters = 0
-    print('\n')
-    log('Upload complete!')
-
-    #Return Hash to client and send to worker
+    #Return Hash to client and send message to worker
     response = { 
         "hash" : m.hexdigest()
     }
     response_pickled = jsonpickle.encode(response)
-    sendToWorker({ 'hash' : m.hexdigest(), 'name' : filename, 'frequency' : freq})#, 'image' : file})
+    sendToWorker({ 'hash' : m.hexdigest(), 'name' : filename, 'frequency' : freq, 'task' : 'split-file'})#, 'image' : file})
 
     log('POST /upload/%s HTTP/1.1 200' % (filename), True)
     return Response(response=response_pickled, status=200, mimetype="application/json")
+
+@app.route('/process/<hash>' , methods=['POST'])
+def processFrames(hash):
+    redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
+
+    imageList = list(redisVidHashToImageHash.smembers(hash))
+    for imageHash in imageList:
+        sendToWorker({ 'VidHash' : hash, 'image' : imageHash, 'task' : 'processs-color'})
+
+    response = { 
+        "imageHashes" : imageList
+    }
+
+    response_pickled = jsonpickle.encode(response)
+
+    log('POST /process/%s HTTP/1.1 200' % (hash), True)
+    return Response(response=response_pickled, status=200, mimetype="application/json")
+
+
 
 @app.route('/palette/<hash>' , methods=['GET'])
 def matchHash(hash):
