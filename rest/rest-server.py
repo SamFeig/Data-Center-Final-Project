@@ -114,7 +114,7 @@ def matchHash(hash):
 
     #plt.savefig('results_%s.jpg' % hash)  
     plt.savefig(buf, format='jpg')
-    #buf.seek(0)
+    buf.seek(0)
     '''
     fig, axs = plt.subplots(2, figsize=(14,14))
     
@@ -139,7 +139,7 @@ def matchHash(hash):
     
     
     return send_file(buf, mimetype='image/jpg', 
-                                as_attachment=True, attachment_filename='results_%s.jpg' % hash)
+                                as_attachment=False, attachment_filename='results_%s.jpg' % hash)
     
     #log('GET /palette/%s HTTP/1.1 200' % (hash), True)
     #response = { 
