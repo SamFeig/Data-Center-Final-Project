@@ -85,72 +85,43 @@ def matchHash(hash):
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
     imageList = list(redisVidHashToImageHash.smembers(hash))
-    #fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
-    fig, axs = plt.subplots(len(imageList), figsize=(14,14))
+    #imageList.reverse()
+
+    #print(imageList)
+    fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
+
     buf = io.BytesIO()
-    for i in range(len(imageList)):
-        imageHash = imageList[i]
-        # Plot the image
-        #img = downloadFromGCS('results', 'csci4253finalproject', '%s/%s' % (hash,imageHash))
-       
+    subplt = 0
+    for imageHash in imageList:
+        #Download image
+        img = downloadFromGCS('results', 'csci4253finalproject', '%s/%s' % (hash,imageHash))
+
         #Get color centers from redis db
-        #print(redisImageHashToColorPalette.get(imageHash))
-        #centers = []
         centers = [i.split(' ') for i in redisImageHashToColorPalette.get(imageHash).split(',')]
         centers = np.array([np.array([float(n) for n in i])for i in centers])
-        #print(centers)
-        #axs[0].imshow(np.array(Image.open(img)))
-        #axs[0].grid()
-        #axs[0].axis('off')
 
+        #Plot the image
+        axs[subplt].imshow(np.array(Image.open(img)))
+        axs[subplt].grid()
+        axs[subplt].axis('off')
+
+        subplt += 1
         # Plot the palette
-        #print(np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T)
-        #print(centers[np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T])
-        axs[i].imshow(centers[
+        axs[subplt].imshow(centers[
             np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T
         ])
-        axs[i].grid()
-        axs[i].axis('off')
+        axs[subplt].grid()
+        axs[subplt].axis('off')
+        subplt += 1
+
 
     #plt.savefig('results_%s.jpg' % hash)  
     plt.savefig(buf, format='jpg')
     buf.seek(0)
-    '''
-    fig, axs = plt.subplots(2, figsize=(14,14))
-    
-    # Plot the image
-    img = downloadFromGCS('results', 'csci4253finalproject', hash)
-    centers = list(redisImageHashToColorPalette.smembers(hash)) #Get color centers from redis db
 
-    axs[0].imshow(img)
-    axs[0].grid()
-    axs[0].axis('off')
-
-    # Plot the palette
-    axs[1].imshow(centers[
-        np.concatenate([[i] * 100 for i in range(len(centers))]
-                       ).reshape((-1, 10)).T
-    ])
-    axs[1].grid()
-    axs[1].axis('off')
-    buf = io.BytesIO()
-    plt.savefig(buf, format='jpg')
-    '''
-    
-    
+    log('GET /palette/%s HTTP/1.1 200' % (hash), True)
     return send_file(buf, mimetype='image/jpg', 
                                 as_attachment=False, attachment_filename='results_%s.jpg' % hash)
-    
-    #log('GET /palette/%s HTTP/1.1 200' % (hash), True)
-    #response = { 
-    #    "match" : list(redisHashToHashSet.smembers(hash))
-    #}
-
-    #response_pickled = jsonpickle.encode(response)
-
-    #log('GET /palette/%s HTTP/1.1 200' % (hash), True)
-    #return Response(response=response_pickled, status=200, mimetype="application/json")
-
 
 # start flask app
 app.run(host="0.0.0.0", port=5000)
