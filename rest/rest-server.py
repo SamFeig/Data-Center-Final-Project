@@ -63,48 +63,74 @@ def uploadImage(filename):
     return Response(response=response_pickled, status=200, mimetype="application/json")
 
 @app.route('/match/<hash>/<int:R>/<int:G>/<int:B>' , methods=['GET'])
-def matchValues(R, B, G):
-    log("Attempting API request on /match/ for %d, %d, %d" % (R, G, B), True)
+def matchValues(hash, R, B, G):
+    log("Attempting API request on /match/%s/%d/%d/%d" % (hash, R, G, B), True)
 
     redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
-    #From colormath instructions here:
-    #http://hanzratech.in/2015/01/16/color-difference-between-2-colors-using-python.html
-
-    # Red Color
-    color1_rgb = sRGBColor(R, G, B);
-
-    # Image Color
-    imgRGB = hexTorgb()
-    color2_rgb = sRGBColor(imgRGB[0], imgRGB[1], imgRGB[2]);
-
-    # Convert from RGB to Lab Color Space
-    color1_lab = convert_color(color1_rgb, LabColor);
-
-    # Convert from RGB to Lab Color Space
-    color2_lab = convert_color(color2_rgb, LabColor);
-
-    # Find the color difference
-    delta_e = delta_e_cie2000(color1_lab, color2_lab);
-
-    if delta_e <= threshold:
-        pass
 
     imageList = list(redisVidHashToImageHash.smembers(hash))
 
-    response = { 
-        "imageHashes" : imageList
-    }
+    R /= 255.0
+    G /= 255.0
+    B /= 255.0
+    #print(R,G,B)
+    color1_rgb = sRGBColor(R, G, B);
+    # Convert from RGB to Lab Color Space
+    color1_lab = convert_color(color1_rgb, LabColor);
 
-    response_pickled = jsonpickle.encode(response)
+    fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
+    for i in range(len(imageList)*2):
+        axs[i].grid()
+        axs[i].axis('off')
 
-    log('POST /match/%s HTTP/1.1 200' % (hash), True)
-    return Response(response=response_pickled, status=200, mimetype="application/json")
+    buf = io.BytesIO()
+    subplt = 0
+    for imageHash in imageList:
+        #Get color centers from redis db
+        centers = [i.split(' ') for i in redisImageHashToColorPalette.get(imageHash).split(',')]
+        centers = np.array([np.array([float(n) for n in i])for i in centers])
+
+        for RGB in centers:
+            color2_rgb = sRGBColor(RGB[0], RGB[1], RGB[2]);
+            # Convert from RGB to Lab Color Space
+            color2_lab = convert_color(color2_rgb, LabColor);
+            # Find the color difference
+            delta_e = delta_e_cie2000(color1_lab, color2_lab);
+            print(delta_e)
+            if delta_e <= 10:
+                img = downloadFromGCS(imageHash, 'csci4253finalproject', '%s/%s' % (hash,imageHash), file_perms='w+b')
+
+                #Plot the image
+                axs[subplt].imshow(np.array(Image.open(img)))
+                axs[subplt].grid()
+                axs[subplt].axis('off')
+
+                subplt += 1
+                # Plot the palette
+                axs[subplt].imshow(centers[
+                    np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T
+                ])
+                axs[subplt].grid()
+                axs[subplt].axis('off')
+                subplt += 1
+
+                img.close()
+                os.remove(img.name)
+
+    plt.savefig(buf, format='jpg')
+    buf.seek(0)
+
+    log('GET /match/%s/%d/%d/%d HTTP/1.1 200' % (hash, R, G, B), True)
+    return send_file(buf, mimetype='image/jpg', 
+                                as_attachment=False, attachment_filename='results_%s.jpg' % hash)
+
+    #return Response(response=response_pickled, status=200, mimetype="application/json")
 
 #Final endpoint to get results from a video hash
 @app.route('/palette/<hash>' , methods=['GET'])
 def matchHash(hash):
-    log("Attempting API request on /palette/ for %s" % (hash), True)
+    log("Attempting API request on /palette/%s" % (hash), True)
 
     redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
