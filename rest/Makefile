@@ -45,8 +45,7 @@ runKube:
 	kubectl apply -f rest-service.yaml
 	kubectl apply -f rest-ingress.yaml
 	sleep 5
-	@#kubectl port-forward --address 0.0.0.0 service/rest-service 5000:5000 &
-	@#sleep 5
+
 	kubectl apply -f logs-deployment.yaml	
 
 cleanKube:

@@ -7,7 +7,10 @@ FROM python:3.7
 CMD mkdir /moviecolor
 WORKDIR /moviecolor
 
-RUN pip3 install --upgrade pika redis jsonpickle requests flask pillow
+RUN apt-get update
+RUN apt-get install ffmpeg libsm6 libxext6  -y
+
+RUN pip3 install --upgrade requests numpy scikit-learn pillow opencv-python matplotlib gcloud google-api-python-client flask jsonpickle pika redis colormath
 
 COPY . /moviecolor
 

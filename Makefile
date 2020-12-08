@@ -35,6 +35,18 @@ localDeploy:
 	sleep 5
 	kubectl port-forward --address 0.0.0.0 service/rabbitmq 5672:5672 &
 	kubectl port-forward --address 0.0.0.0 service/redis 6379:6379 &
+	sleep 5
+
+	kubectl apply -f rest/rest-deployment.yaml
+	kubectl apply -f rest/rest-service.yaml
+	kubectl apply -f rest/rest-ingress.yaml
+	sleep 5
+	kubectl port-forward --address 0.0.0.0 service/rest-service 5000:5000 &
+	sleep 5
+	
+	kubectl apply -f rest/logs-deployment.yaml
+
+	kubectl apply -f worker/worker-deployment.yaml	
 
 localClean:
 	kubectl delete deployment redis
@@ -42,7 +54,7 @@ localClean:
 	kubectl delete service redis
 	kubectl delete service rabbitmq
 
-	-@pkill -f port-forward
+	-@pkill -f port-forwardma
 
 runKube:
 	kubectl apply -f redis/redis-deployment.yaml
@@ -51,9 +63,6 @@ runKube:
 	kubectl apply -f rabbitmq/rabbitmq-service.yaml
 
 	sleep 5
-	@#kubectl port-forward --address 0.0.0.0 service/rabbitmq 5672:5672 &
-	@#kubectl port-forward --address 0.0.0.0 service/redis 6379:6379 &
-	@#sleep 5
 
 	(cd rest; make runKube)
 	(cd worker; make runKube)

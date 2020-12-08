@@ -29,6 +29,11 @@ print("Connecting to rabbitmq({}) and redis({})".format(rabbitMQHost,redisHost))
 
 # Initialize the Flask application
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024 #2GB
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return 'File Too Large', 413
 
 ###REST API ROUTES###
 
@@ -67,9 +72,19 @@ def matchValues(hash, R, B, G):
     log("Attempting API request on /match/%s/%d/%d/%d" % (hash, R, G, B), True)
 
     redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
+    redisImgHashToTimestamp = redis.Redis(host=redisHost, db=2, decode_responses=True)
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
-    imageList = list(redisVidHashToImageHash.smembers(hash))
+    imageList = sorted(list(redisVidHashToImageHash.smembers(hash)), key= lambda item: int(redisImgHashToTimestamp.get(item)))
+    if len(imageList) == 0:
+        response = { 
+            "imageList" : imageList
+        }
+        response_pickled = jsonpickle.encode(response)
+        log('POST /upload/%s HTTP/1.1 500 - No Images' % (filename), True)
+
+        return Response(response=response_pickled, status=500, mimetype="application/json")
+
 
     R /= 255.0
     G /= 255.0
@@ -103,6 +118,7 @@ def matchValues(hash, R, B, G):
                 #Plot the image
                 axs[subplt].imshow(np.array(Image.open(img)))
                 axs[subplt].grid()
+                axs[subplt].set_title("Timestamp: %s ms" %(redisImgHashToTimestamp.get(imageHash)), fontsize=40)
                 axs[subplt].axis('off')
 
                 subplt += 1
@@ -134,6 +150,15 @@ def matchHash(hash):
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
     imageList = sorted(list(redisVidHashToImageHash.smembers(hash)), key= lambda item: int(redisImgHashToTimestamp.get(item)))
+    if len(imageList) == 0:
+        response = { 
+            "imageList" : imageList
+        }
+        response_pickled = jsonpickle.encode(response)
+        log('POST /upload/%s HTTP/1.1 500 - No Images' % (filename), True)
+
+        return Response(response=response_pickled, status=500, mimetype="application/json")
+
 
     fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14 if len(imageList) == 0 else len(imageList) * 14))
 
