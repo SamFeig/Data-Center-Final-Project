@@ -45,7 +45,7 @@ def log(message, debug=False):
     channel = connection.channel()
     channel.exchange_declare(exchange='logs', exchange_type='topic')
 
-    routing_key = '%s.rest.%s'% (rabbitMQHost, 'debug' if debug else 'info')
+    routing_key = '%s.worker.%s'% (rabbitMQHost, 'debug' if debug else 'info')
     channel.basic_publish(exchange='logs', routing_key=routing_key, body=message)
     print(" [x] Sent %r:%r" % (routing_key, message))
     channel.close()
