@@ -15,7 +15,7 @@ import time
 import json
 
 # Google Cloud Auth
-sys.path.append("..")
+#sys.path.append("..")
 from util import log, sendToWorker, downloadFromGCS, uploadToGCS
 
 import make_palette

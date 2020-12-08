@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: logs
-        image: samfeig/logs-server:latest
+        image: samfeig/moviecolor-logs:latest
         stdin: true
         tty: true
         env:

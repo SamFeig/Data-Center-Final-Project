@@ -4,12 +4,10 @@
 
 FROM python:3.7
 
-ADD rest-server.py /
-
-RUN pip3 install --upgrade pika redis jsonpickle requests flask
-
 CMD mkdir /app
 WORKDIR /app
+
+RUN pip3 install --upgrade requests numpy scikit-learn pillow opencv-python matplotlib gcloud google-api-python-client flask jsonpickle pika redis colormath
 
 COPY . /app
 

@@ -16,7 +16,7 @@ from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from colormath.color_diff import delta_e_cie2000
 
-sys.path.append("..")
+#sys.path.append("..")
 from util import log, sendToWorker, uploadToGCS, downloadFromGCS
 
 ##
@@ -74,10 +74,9 @@ def matchValues(hash, R, B, G):
     R /= 255.0
     G /= 255.0
     B /= 255.0
-    #print(R,G,B)
-    color1_rgb = sRGBColor(R, G, B);
+    color1_rgb = sRGBColor(R, G, B)
     # Convert from RGB to Lab Color Space
-    color1_lab = convert_color(color1_rgb, LabColor);
+    color1_lab = convert_color(color1_rgb, LabColor)
 
     fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
     for i in range(len(imageList)*2):
@@ -92,11 +91,11 @@ def matchValues(hash, R, B, G):
         centers = np.array([np.array([float(n) for n in i])for i in centers])
 
         for RGB in centers:
-            color2_rgb = sRGBColor(RGB[0], RGB[1], RGB[2]);
+            color2_rgb = sRGBColor(RGB[0], RGB[1], RGB[2])
             # Convert from RGB to Lab Color Space
-            color2_lab = convert_color(color2_rgb, LabColor);
+            color2_lab = convert_color(color2_rgb, LabColor)
             # Find the color difference
-            delta_e = delta_e_cie2000(color1_lab, color2_lab);
+            delta_e = delta_e_cie2000(color1_lab, color2_lab)
             print(delta_e)
             if delta_e <= 10:
                 img = downloadFromGCS(imageHash, 'csci4253finalproject', '%s/%s' % (hash,imageHash), file_perms='w+b')
@@ -124,8 +123,6 @@ def matchValues(hash, R, B, G):
     log('GET /match/%s/%d/%d/%d HTTP/1.1 200' % (hash, R, G, B), True)
     return send_file(buf, mimetype='image/jpg', 
                                 as_attachment=False, attachment_filename='results_%s.jpg' % hash)
-
-    #return Response(response=response_pickled, status=200, mimetype="application/json")
 
 #Final endpoint to get results from a video hash
 @app.route('/palette/<hash>' , methods=['GET'])

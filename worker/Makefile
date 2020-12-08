@@ -5,7 +5,7 @@
 NS := samfeig
 VERSION := latest
 
-IMAGE_NAME := worker-server
+IMAGE_NAME := moviecolor-worker
 CONTAINER_NAME := worker-server
 
 REDIS_HOST := redis	

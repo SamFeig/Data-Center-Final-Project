@@ -5,12 +5,12 @@
 NS := samfeig
 VERSION := latest
 
-IMAGE_NAME := logs-server
+IMAGE_NAME := moviecolor-logs
 CONTAINER_NAME := logs-server
-IMAGE_NAME2 := rest-server
+IMAGE_NAME2 := moviecolor-rest
 CONTAINER_NAME2 := rest-server
 
-REDIS_HOST := redis	
+REDIS_HOST := redis
 RABBITMQ_HOST := rabbitmq
 
 PORT := 5000
@@ -32,11 +32,13 @@ pushLogs:
 pushRest:
 	docker push $(NS)/$(IMAGE_NAME2):$(VERSION)
 
+run: runRest runLogs
+
 runLogs:
-	docker run -e $(REDIST_HOST) -e $(RABBITMQ_HOST) $(NS)/$(IMAGE_NAME):$(VERSION)
+	docker run -e $(REDIS_HOST) -e $(RABBITMQ_HOST) $(NS)/$(IMAGE_NAME):$(VERSION)
 
 runRest:
-	docker run -e $(REDIST_HOST) -e $(RABBITMQ_HOST) -p $(PORT):$(PORT) $(NS)/$(IMAGE_NAME2):$(VERSION)
+	docker run -e $(REDIS_HOST) -e $(RABBITMQ_HOST) -p $(PORT):$(PORT) $(NS)/$(IMAGE_NAME2):$(VERSION)
 
 runKube:
 	kubectl apply -f rest-deployment.yaml

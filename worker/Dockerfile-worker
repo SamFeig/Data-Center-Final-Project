@@ -2,13 +2,14 @@
 ## You provide this
 ##
 
-FROM dirkcgrunwald/facerec:latest
+FROM python:3.7
 
-ADD worker-server.py /
+CMD mkdir /moviecolor
+WORKDIR /moviecolor
 
-RUN pip3 install --upgrade pika redis jsonpickle requests flask
+RUN pip3 install --upgrade pika redis jsonpickle requests flask pillow
 
-COPY . /root/face_recognition
+COPY . /moviecolor
 
-CMD cd /root/face_recognition && \
+CMD cd /moviecolor && \
     python3 worker-server.py

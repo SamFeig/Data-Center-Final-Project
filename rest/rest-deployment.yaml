@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: rest-server
-        image: samfeig/rest-server:latest
+        image: samfeig/moviecolor-rest:latest
         env:
         - name: REDIS_HOST
           value: redis
