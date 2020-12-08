@@ -25,3 +25,4 @@ spec:
           value: redis
         - name: RABBITMQ_HOST
           value: rabbitmq
+

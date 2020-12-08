@@ -2,6 +2,9 @@ kind: Service
 apiVersion: v1
 metadata:
   name: "rabbitmq"
+  annotations:
+    prometheus.io/port: "9090"
+    prometheus.io/scrape: "true"
 spec:
   selector:
     app: "rabbitmq"

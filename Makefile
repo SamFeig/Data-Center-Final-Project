@@ -46,7 +46,13 @@ localDeploy:
 	
 	kubectl apply -f rest/logs-deployment.yaml
 
-	kubectl apply -f worker/worker-deployment.yaml	
+	kubectl apply -f worker/worker-deployment.yaml
+	
+	(cd rabitmq; kubectl apply -f servicemonitor-rabbitmq.yaml)
+	(cd rabbitmq; kubectl apply -f rabbitmq-scaling-rules.yaml)
+	(cd rabbitmq; kubectl apply -f rabbitmq-scaling-hpa.yaml)
+
+	kubectl port-forward service/my-prom-grafana 9999:80 &
 
 localClean:
 	kubectl delete deployment redis
