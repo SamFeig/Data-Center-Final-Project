@@ -130,11 +130,12 @@ def matchHash(hash):
     log("Attempting API request on /palette/%s" % (hash), True)
 
     redisVidHashToImageHash = redis.Redis(host=redisHost, db=1, decode_responses=True)
+    redisImgHashToTimestamp = redis.Redis(host=redisHost, db=2, decode_responses=True)
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
-    imageList = list(redisVidHashToImageHash.smembers(hash))
+    imageList = sorted(list(redisVidHashToImageHash.smembers(hash)), key= lambda item: int(redisImgHashToTimestamp.get(item)))
 
-    fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
+    fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14 if len(imageList) == 0 else len(imageList) * 14))
 
     buf = io.BytesIO()
     subplt = 0
@@ -149,6 +150,7 @@ def matchHash(hash):
         #Plot the image
         axs[subplt].imshow(np.array(Image.open(img)))
         axs[subplt].grid()
+        axs[subplt].set_title("Timestamp: %s ms" %(redisImgHashToTimestamp.get(imageHash)), fontsize=40)
         axs[subplt].axis('off')
 
         subplt += 1
