@@ -113,7 +113,7 @@ def callback(ch, method, properties, body):
         print(task)
         log('No task found for worker with data %s, no work was done in this instance' % (data))
 
-    print(" [x] Done")
+    log(" [x] Done")
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 

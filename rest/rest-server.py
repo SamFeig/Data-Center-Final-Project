@@ -76,15 +76,16 @@ def matchValues(hash, R, B, G):
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
     imageList = sorted(list(redisVidHashToImageHash.smembers(hash)), key= lambda item: int(redisImgHashToTimestamp.get(item)))
+    
     if len(imageList) == 0:
         response = { 
-            "message": "No color palettes matched for the specified color and hash."
+            "message": "No color palettes matched for the specified color and hash. Either hash does not exist or server is not done processing"
         }
         response_pickled = jsonpickle.encode(response)
-        log('POST /match/%s/%d/%d/%d HTTP/1.1 500 - No Images' % (hash, R, G, B), True)
+        log('POST /match/%s/%d/%d/%d HTTP/1.1 200 - No Images' % (hash, R, G, B), True)
 
-        return Response(response=response_pickled, status=404, mimetype="application/json")
-
+        return Response(response=response_pickled, status=200, mimetype="application/json")
+    
 
     R /= 255.0
     G /= 255.0
@@ -93,10 +94,7 @@ def matchValues(hash, R, B, G):
     # Convert from RGB to Lab Color Space
     color1_lab = convert_color(color1_rgb, LabColor)
 
-    fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14))
-    for i in range(len(imageList)*2):
-        axs[i].grid()
-        axs[i].axis('off')
+    toPlot = [False]*len(imageList)
 
     buf = io.BytesIO()
     subplt = 0
@@ -113,25 +111,39 @@ def matchValues(hash, R, B, G):
             delta_e = delta_e_cie2000(color1_lab, color2_lab)
             print(delta_e)
             if delta_e <= 10:
-                img = downloadFromGCS(imageHash, 'csci4253finalproject', '%s/%s' % (hash,imageHash), file_perms='w+b')
+                toPlot[subplt] = True
+        subplt += 1
 
-                #Plot the image
-                axs[subplt].imshow(np.array(Image.open(img)))
-                axs[subplt].grid()
-                axs[subplt].set_title("Timestamp: %s ms" %(redisImgHashToTimestamp.get(imageHash)), fontsize=40)
-                axs[subplt].axis('off')
+    numToPlot = np.sum(toPlot)           
+    fig, axs = plt.subplots(numToPlot*2, figsize=(14,14 if numToPlot == 0 else numToPlot * 14))
 
-                subplt += 1
-                # Plot the palette
-                axs[subplt].imshow(centers[
-                    np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T
-                ])
-                axs[subplt].grid()
-                axs[subplt].axis('off')
-                subplt += 1
+    subplt = 0
+    n = 0
+    for imageHash in imageList:
+        if toPlot[n]:
+            centers = [i.split(' ') for i in redisImageHashToColorPalette.get(imageHash).split(',')]
+            centers = np.array([np.array([float(n) for n in i])for i in centers])
 
-                img.close()
-                os.remove(img.name)
+            img = downloadFromGCS(imageHash, 'csci4253finalproject', '%s/%s' % (hash,imageHash), file_perms='w+b')
+
+            #Plot the image
+            axs[subplt].imshow(np.array(Image.open(img)))
+            axs[subplt].grid()
+            axs[subplt].set_title("Timestamp: %s ms" %(redisImgHashToTimestamp.get(imageHash)), fontsize=40)
+            axs[subplt].axis('off')
+
+            subplt += 1
+            # Plot the palette
+            axs[subplt].imshow(centers[
+                np.concatenate([[i] * 100 for i in range(len(centers))]).reshape((-1, 10)).T
+            ])
+            axs[subplt].grid()
+            axs[subplt].axis('off')
+            subplt += 1
+
+            img.close()
+            os.remove(img.name)
+        n += 1
 
     plt.savefig(buf, format='jpg')
     buf.seek(0)
@@ -150,17 +162,21 @@ def matchHash(hash):
     redisImageHashToColorPalette = redis.Redis(host=redisHost, db=3, decode_responses=True)
 
     imageList = sorted(list(redisVidHashToImageHash.smembers(hash)), key= lambda item: int(redisImgHashToTimestamp.get(item)))
+    
     if len(imageList) == 0:
         response = { 
-            "imageList" : imageList
+            "message": "No color palettes matched for the specified hash. Either hash does not exist or server is not done processing"
         }
         response_pickled = jsonpickle.encode(response)
-        log('POST /palette/%s HTTP/1.1 500 - No Images' % (hash), True)
+        log('POST /palette/%s HTTP/1.1 200 - No Images' % (hash), True)
 
-        return Response(response=response_pickled, status=500, mimetype="application/json")
-
+        return Response(response=response_pickled, status=200, mimetype="application/json")
+    
 
     fig, axs = plt.subplots(len(imageList)*2, figsize=(14,14 if len(imageList) == 0 else len(imageList) * 14))
+    for i in range(len(imageList)*2):
+        axs[i].grid()
+        axs[i].axis('off')
 
     buf = io.BytesIO()
     subplt = 0

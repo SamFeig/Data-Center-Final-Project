@@ -39,9 +39,9 @@ localDeploy:
 
 	kubectl apply -f rest/rest-deployment.yaml
 	kubectl apply -f rest/rest-service.yaml
-	kubectl apply -f rest/rest-ingress.yaml
+	-#kubectl apply -f rest/rest-ingress.yaml
 	sleep 5
-	kubectl port-forward --address 0.0.0.0 service/rest-service 5000:5000 &
+	-#kubectl port-forward --address 0.0.0.0 service/rest-service 5000:5000 &
 	sleep 5
 	
 	kubectl apply -f rest/logs-deployment.yaml
@@ -63,6 +63,7 @@ runKube:
 	kubectl apply -f rabbitmq/rabbitmq-deployment.yaml
 	kubectl apply -f rabbitmq/rabbitmq-service.yaml
 
+	sleep 5
 	sleep 5
 
 	(cd rest; make runKube)
