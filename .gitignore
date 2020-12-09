@@ -1,8 +1,9 @@
 service-credentials.json
 */service-credentials.json
 
-*.mp4
 
 __pycache__/
+*/__pycache__/
 
 *.jpg
+*.mp4
