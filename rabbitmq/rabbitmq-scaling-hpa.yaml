@@ -2,10 +2,10 @@
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: worker-server-scaling-hpa
+  name: worker-server-hpa
 spec:
   scaleTargetRef:
-    apiVersion: extensions/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     name: worker-server
   minReplicas: 1
@@ -18,7 +18,7 @@ spec:
       describedObject:
         apiVersion: "/v1"
         kind: Service
-        name: worker-server-scaling
+        name: rabbitmq-exporter
       target:
         type: Value
-        value: 100
+        value: 10

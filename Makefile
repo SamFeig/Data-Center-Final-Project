@@ -48,11 +48,6 @@ localDeploy:
 
 	kubectl apply -f worker/worker-deployment.yaml
 	
-	(cd rabitmq; kubectl apply -f servicemonitor-rabbitmq.yaml)
-	(cd rabbitmq; kubectl apply -f rabbitmq-scaling-rules.yaml)
-	(cd rabbitmq; kubectl apply -f rabbitmq-scaling-hpa.yaml)
-
-	kubectl port-forward service/my-prom-grafana 9999:80 &
 
 localClean:
 	kubectl delete deployment redis
@@ -60,7 +55,7 @@ localClean:
 	kubectl delete service redis
 	kubectl delete service rabbitmq
 
-	-@pkill -f port-forwardma
+	-@pkill -f port-forward
 
 runKube:
 	kubectl apply -f redis/redis-deployment.yaml
@@ -72,6 +67,7 @@ runKube:
 
 	(cd rest; make runKube)
 	(cd worker; make runKube)
+
 
 clean:
 	kubectl delete deployment redis

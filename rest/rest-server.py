@@ -81,7 +81,7 @@ def matchValues(hash, R, B, G):
             "message": "No color palettes matched for the specified color and hash."
         }
         response_pickled = jsonpickle.encode(response)
-        log('POST /upload/%s HTTP/1.1 500 - No Images' % (hash), True)
+        log('POST /match/%s/%d/%d/%d HTTP/1.1 500 - No Images' % (hash, R, G, B), True)
 
         return Response(response=response_pickled, status=404, mimetype="application/json")
 
@@ -155,7 +155,7 @@ def matchHash(hash):
             "imageList" : imageList
         }
         response_pickled = jsonpickle.encode(response)
-        log('POST /upload/%s HTTP/1.1 500 - No Images' % (hash), True)
+        log('POST /palette/%s HTTP/1.1 500 - No Images' % (hash), True)
 
         return Response(response=response_pickled, status=500, mimetype="application/json")
 

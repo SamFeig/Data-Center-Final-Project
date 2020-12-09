@@ -5,7 +5,7 @@ metadata:
   name: rabbitmq-prom-rule
   namespace: default
   labels:
-    prometheus: kube-prometheus # This label is configured as part of the installation of the prometheus operator
+    prometheus: prometheus # This label is configured as part of the installation of the prometheus operator
 spec: 
   groups:
   - name: rabbitmq # Define the name of your rule
@@ -14,4 +14,4 @@ spec:
       expr: rabbitmq_queue_messages{queue="toWorker"} # Query to make to prometheus
       labels:
         namespace: default
-        service: eventqueue # Name of the service you are going to configure your HPA with
+        service: rabbitmq-exporter # Name of the service you are going to configure your HPA with
