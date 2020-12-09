@@ -78,12 +78,12 @@ def matchValues(hash, R, B, G):
     imageList = sorted(list(redisVidHashToImageHash.smembers(hash)), key= lambda item: int(redisImgHashToTimestamp.get(item)))
     if len(imageList) == 0:
         response = { 
-            "imageList" : imageList
+            "message": "No color palettes matched for the specified color and hash."
         }
         response_pickled = jsonpickle.encode(response)
-        log('POST /upload/%s HTTP/1.1 500 - No Images' % (filename), True)
+        log('POST /upload/%s HTTP/1.1 500 - No Images' % (hash), True)
 
-        return Response(response=response_pickled, status=500, mimetype="application/json")
+        return Response(response=response_pickled, status=404, mimetype="application/json")
 
 
     R /= 255.0
@@ -155,7 +155,7 @@ def matchHash(hash):
             "imageList" : imageList
         }
         response_pickled = jsonpickle.encode(response)
-        log('POST /upload/%s HTTP/1.1 500 - No Images' % (filename), True)
+        log('POST /upload/%s HTTP/1.1 500 - No Images' % (hash), True)
 
         return Response(response=response_pickled, status=500, mimetype="application/json")
 
